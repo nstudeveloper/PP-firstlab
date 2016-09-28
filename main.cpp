@@ -3,14 +3,21 @@
 #include <ctime>
 #include <iostream>
 using namespace std;
+// Любая директива начинается с прагмы
+// #pragma omp parallel - директива задания параллельного выполнения кода
+// shared(список переменных) – список общих переменных для всех потоков данной секции
+// private(список переменных) –	список переменных, которые будут локальными в каждом потоке секции
+// reduction(оператор : список переменных) – оператор сведения и список общих переменных 
+// Директива блокировки доступа к общей переменной из левой части 
+// оператора присваивания на время выполнения всех действий с этой переменной в данном операторе: #pragma omp atomic
+
 
 //построение дерева из массива
 void downHeap(int *a, long k, long n) {
-	int new_elem;
+	int new_elem = a[k];
 	long child;
-	new_elem = a[k];
-
-	while (k <= n / 2) {  		// пока у a[k] есть дети 
+	// Пока у a[k] есть дети - выбираем большего из них
+	while (k <= n / 2) {  		
 		child = 2 * k;
 		//  выбираем большего сына 
 		if (child < n && a[child] < a[child + 1])
@@ -26,9 +33,11 @@ void downHeap(int *a, long k, long n) {
 //сортировка пирамидой
 void sort(int *a, int size)
 {
+	// Половину массива
 	for (int i = size / 2; i >= 0; i--) {
 		downHeap(a, i, size - 1);
 	}
+	// 
 	for (int i = size - 1; i > 0; i--)
 	{
 		int temp = a[i];
@@ -39,7 +48,7 @@ void sort(int *a, int size)
 	}
 }
 
-int min(int x, int y)
+int isMin(int x, int y)
 {
 	if (x <= y) return x;
 	else return y;
@@ -89,16 +98,18 @@ void mp_sort(int* A, int* B, int N, int P)
 	int *tA = A;
 	int *tB = B;
 	int *t = NULL;
-	//1)Разбиение на блоки и сортировка их по отдельности
+	// 1) Разбиение массива на блоки и сортировка их по отдельности
 	int i;
 	int part_size = (int)ceil((float)N / (float)P);
 	int count = 0;
 #pragma omp parallel shared(P, tA, tB, N, part_size)
 #pragma omp for private(i) reduction(+:count) 
-	for (i = 0; i<P; i++)
+	for (i = 0; i < P; i++)
 	{
-		sort(tA + i*part_size, min(part_size, N - i*part_size));
-		count += min(part_size, N - i*part_size);
+		int balance = N - i * part_size;
+		int arraySize = isMin(part_size, balance);
+		sort(tA + i * part_size, arraySize);
+		count += isMin(part_size, balance);
 	}
 	int r2, m;
 	int count2 = 0;
@@ -108,13 +119,13 @@ void mp_sort(int* A, int* B, int N, int P)
 #pragma omp for private(i,r2,m)
 		for (i = 0; i<N; i += part_size)
 		{
-			r2 = min(i + part_size - 1, N - 1);
+			r2 = isMin(i + part_size - 1, N - 1);
 			m = ((i + i + part_size - 1) >> 1);
 			merge(tA, tB, i, m, r2);
 #pragma omp atomic
 			count2 += part_size;
 		}
-#pragma omp critical
+#pragma omp crit#ical
 		part_size *= 2;
 		t = tA;
 		tA = tB;
@@ -162,9 +173,10 @@ int main()
 
 	for (int i = 0; i < n; i++)
 	{
-		int r = rand();
+		int r = rand() % 100;
 		mas[i] = r;
 		mas1[i] = r;
+		// cout << mas[i] << endl;
 	}
 	cout << endl;
 
